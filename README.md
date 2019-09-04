@@ -1,4 +1,4 @@
-# GenderGaps In Income
+# Analysis Project in R: Gender Gaps In Income
 In this analysis project, I used R to address the following problem:
 
 "Is there a significant difference in income between men and women? 
