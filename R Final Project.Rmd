@@ -1,0 +1,309 @@
+---
+title: "Final Analysis Project: Gender and Income"
+author: "Tracy Guo"
+date: 'Aug 23'
+output: 
+  html_document:
+    theme: paper
+    highlight: tango
+    toc: true
+    toc_depth: 4
+    toc_float: true
+---
+
+###Part 1: Data Cleaning and Summary 
+
+####Data Cleaning
+
+1(a) I first loaded the dataset and selected variables that I was interested in exploring for this project, which are "Total Income in 2012", "Gender", "Race", "Urban versus Not Urban", "Family Size in 1979", "Family Poverty Status in 1979",  "Age of First Use of Alchol", "Age of First Use of Drug", as well as "Whether Have Had Crime". I saved these varaibles into a dataframe and gave each column meaningful names. I hypothesized that there is a significant difference in income between men and women, and the difference may vary depending these other factors selected. The table below is the first few rows of the dataframe. 
+
+```{r, echo=FALSE,fig.align='center'}
+#Load the dataset
+data <- read.csv("nlsy79_income.csv")
+
+#Pick Variables that I am interested in using for this project
+selected <- data[c("T3977400", "R0214800","R0214700", "R0001800", "R0217502", "R0217910","R1021700","R1395400", "R0307100")]
+
+#Rename the variables 
+names(selected) <- c("total_income", "gender", "race", "urban","fam_size_young", "fam_pov", "alchol_age", "drug_age","crime")
+
+library(knitr)
+kable(head(selected))
+```
+
+1(b) From examining the dataframe, I found that there are many data points with answers of refusal(-1), don't know(-2), invalid skip(-3), valid skip(-4), and non-interview(-5). I replaced these values with NAs because they don't contribute to our analysis. In addition, I also noticed that there are many zeros in the total income column. We are interested in the change in total income, hence a zero income does not contribute to the analysis. I decided to mark the 0 income as NA as well. I then found out the value of the topcoded income by sorting the total income. I decided to mark all topcoded income as NA as well because it comes from an extemely small portion of the population and will definitely bias our data. 
+
+```{r, echo=FALSE, include=FALSE}
+for (i in c( -1,-2,-3,-4,-5)){
+  selected$total_income[selected$total_income==i] <- NA
+  selected$gender[selected$gender==i] <- NA
+  selected$urban[selected$urban==i] <- NA
+  selected$race[selected$race==i] <- NA
+  selected$fam_size_young[selected$fam_size_young==i] <- NA
+  selected$fam_pov[selected$fam_pov==i] <- NA
+  selected$alchol_age[selected$alchol_age==i] <- NA
+  selected$drug_age[selected$drug_age==i] <- NA
+  selected$crime[selected$crime==i] <- NA
+}
+
+#mark zeros as NAs
+selected$total_income[selected["total_income"] ==0] <- NA
+
+#mark topcoded as NAs
+sort(selected$total_income, decreasing=TRUE)
+selected$total_income[selected["total_income"] ==343830] <- NA
+```
+
+1(c) Last but not least, I converted variables into the right data type and provide appropriate level names for factor variables. 
+```{r, echo=FALSE, include=FALSE}
+#Change categorical variables to factors
+selected <- transform(selected,
+                      gender=as.factor(gender),
+                      urban=as.factor(urban),
+                      race=as.factor(race),
+                      fam_pov=as.factor(fam_pov),
+                      crime=as.factor(crime)
+)
+
+#Check existing levels and give each factor proper level names
+levels(selected$gender)
+levels(selected$gender) <- c("Male", "Female")
+
+levels(selected$urban)
+levels(selected$urban) <- c("Town city", "Country, not farm", "Farm/ranch")
+
+levels(selected$race)
+levels(selected$race) <- c("Hispanic", "Black", "Non Black/His")
+
+levels(selected$fam_pov)
+levels(selected$fam_pov) <- c("Not in Poverty", "In Poverty")
+
+levels(selected$crime)
+levels(selected$crime) <- c("No", "Yes")
+```
+
+###Data Summary
+1(d) The dataset is now cleaned and ready to go. The following Table One provides a summary of the data, stratified by gender. NAs were not included in the summary. One important insight from this table is that the mean total income for male is higher than that of females, which potentially suggests that total income may indeed differ by gender. For other variables, the difference between males and females are not drastically different. 
+
+```{r, echo=FALSE, include=FALSE}
+library(table1)
+```
+
+```{r,echo=FALSE,fig.align='center'}
+
+#CreateTableOne(strata="gender", data=selected, includeNA=FALSE)
+
+selected_nona <- na.omit(selected)
+label(selected_nona$total_income) <- "Total Income in 2012"
+label(selected_nona$gender) <- "Gender"
+label(selected_nona$urban) <- "Childhood Residence"
+label(selected_nona$race) <- "Race"
+label(selected_nona$fam_size_young) <- "Family Size in 1979"
+label(selected_nona$fam_pov) <- "Family Poverty Status in 1979"
+label(selected_nona$alchol_age) <-"Age of First Use of Alchol"
+label(selected_nona$drug_age) <-"Age of First Use of Drug"
+label(selected_nona$crime) <- "Whether Have Had Crime in the Past"
+
+units(selected_nona$total_income) <- "Dollars"
+units(selected_nona$alchol_age) <- "Years"
+units(selected_nona$drug_age) <- "Years"
+
+table1(~ total_income+race+urban+fam_size_young+fam_pov+alchol_age+drug_age+crime | gender, data=selected_nona, na.rm=TRUE)
+```
+<br/><br/>
+1(e) The following graph shows the distribution of total income in 2012 stratified by gender. Income for both males and females are slightly skewed to the right, which is expected. Only a small percentage of the population have high income. In addition, this graph also reveals that the income for females is less than that for males. 
+```{r, echo=FALSE,fig.align='center'}
+library(ggplot2)
+ggplot(selected_nona, aes(x=total_income, fill=gender))+ 
+  geom_histogram()+
+  ggtitle("Distribution of Total Income in 2012 by Gender")+
+  scale_fill_manual(values=c("mediumturquoise","salmon"))+
+  xlab("Gender")+
+  ylab("Total Income in 2012 (Dollars)")+
+  labs (fill="Gender")
+```
+
+1(f) The following boxplot confirms with patterns revealed in the previous graph. The median income for females is less than that for males.
+```{r, echo=FALSE,fig.align='center'}
+ggplot(selected_nona, aes(x=gender, y=total_income,color=gender))+ 
+  geom_boxplot()+
+  ggtitle("Total Income in 2012 by Gender")+
+  scale_color_manual(values=c("mediumturquoise","salmon"))+
+  xlab("Gender")+
+  ylab("Total Income in 2012 (Dollars)")+
+  labs (color="Gender")
+                                                                                                                                
+```
+
+1(g) In addition to the relationship between total income and gender, I was also interested in exploring how other factors affect income for both genders. One factor that might be significant is race. The following boxplot displays total income by gender and race. Overall, black participants seem to have the lowest median income among all racial groups. Aligning with prevous patterns, females have lower median income than their male counterparts in each racial group.  
+```{r,echo=FALSE,fig.align='center'}
+ggplot(selected_nona, aes(x=race, y=total_income,color=gender))+ 
+  geom_boxplot()+
+  ggtitle("Total Income in 2012 by Race and Gender")+
+  scale_color_manual(values=c("mediumturquoise","salmon"))+
+  labs (color="Gender")+
+  xlab("Race")+
+  ylab("Total Income in 2012 (Dollars)")
+
+```
+
+1(h) Besides race, I also explored how family size in 1979 plays a role in total income in 2012 for both genders. As the following scatterplot with a fitted line shows, participants with larger family sizes had lower income as they became adults, regardless of gender. Perhaps families with more children have less resources and attention allocated to each child, which affects their performance at school and career development later in life. 
+
+```{r,echo=FALSE,fig.align='center'}
+ggplot(selected_nona, aes(x=fam_size_young, y=total_income,color=gender))+ 
+  geom_point()+
+  ggtitle("Total Income in 2012 by Family Size and Gender")+
+  facet_wrap(~ gender)+
+  scale_color_manual(values=c("mediumturquoise","salmon"))+
+  labs (color="Gender")+
+  xlab("Family Size in 1979")+
+  ylab("Total Income in 2012 (Dollars)")+
+  geom_smooth(method='lm')
+
+```
+
+###Part 2: Methodology 
+
+####Missing variables
+I used the na.omit() function on the original "selected"" dataframe and created a new dataframe called "selected_nona". This new dataframe does not contain any data point that is missing or irrelevant for the analysis. I then used this new dataframe without any NAs for all analysis. As mentioned in part 1, I marked all negative values as NA and excluded them from the analysis. While this approch provides a clean dataset with only relevant variables, it may also render self selection bias. To start with, a negative value is selected when participants refused to answer or skipped the question for various reasons. For instance, perhaps a participant refused to answer a poverty status question because he struggled with childhood poverty and didn't want to remember that past. With a big number of missing variables, it is difficult to assume that the results from the study are accurate represetations of the true situation.  
+
+####Zero and topcoded income
+As mentioned in part 1, I also marked all zero and topcoded income as missing and excluded them from the analysis. We need to exclude these datapoints because they are outliers and lead to heavy skew in the data. In addition, people with no income or topcoded income only represent a small portion of the sample population. Excluding them from the analysis will not lead to major consequences. However, it is important to keep in mind that we can not generalize our findings to these groups as well. 
+
+####Initial Data Exploration
+In part 1, I created multiple tables and plots to explore the relationship between income and gender. The findings were not incredibly surprising, as I hypothesized that there will be a difference in total income between males and females. In addition, I also created plots to explore how two other factors, race and family size, affect the relationship between income and gender. I was surprised that gender gap in income exist for all racial groups and family sizes. Further, I was expecting to see a difference in age of first alchol and drug use between males and females. However, table one reveals that there isn't a huge difference in the mean age for both first alchol and first drug. 
+
+
+####Linear Regression Model
+I decided to build a linear regression to model to with gender, and all the 7 other variables that I selected to predit total income in 2012. 
+<br /> 
+Our y variable is: Total income in 2012 <br /> 
+Our x variables are: <br /> 
+-Gender, Race, Childhood Residence, Family Size in 1979, Family Poverty Status in 1979, Age of First Use of Alchol, Age of First Use of Drug and Whether Have Had Crime 
+<br /> <br /> 
+
+Please note that as the plot in part 1 reveals, our total income data is heavily skewed. I tried to use log2 transformation to fix the problem. The following plot shows the distribution of total income after the transformation. Income is in fact still skewed even after the log transformation, so I decided to just use the original untransformed income as the y variable. 
+
+```{r, echo=FALSE,fig.align='center'}
+library(ggplot2)
+ggplot(selected_nona, aes(x=log2(total_income), fill=gender))+ 
+  geom_histogram()+
+  ggtitle("Log of Total Income in 2012 by Gender")+
+  scale_fill_manual(values=c("mediumturquoise","salmon"))+
+  xlab("Gender")+
+  ylab("Log of Total Income in 2012 (Dollars)")+
+  labs (fill="Gender")
+```
+
+###Part 3: Findings
+The linear regression output is presented below: 
+```{r, echo=FALSE,fig.align='center'}
+model <- lm(total_income ~. , data=selected_nona)
+model_sum <- summary(model)
+model_sum
+```
+
+```{r}
+#Finding out coefficients and p values 
+int_coef <- round(model_sum$coef[1,1],2)
+
+female_coef <- round(model_sum$coef[2,1],2)
+female_p <- model_sum$coef[2,4]
+
+black_coef <- round(model_sum$coef[3,1],2)
+black_p <- model_sum$coef[3,4]
+
+nofarm_coef <- round(model_sum$coef[5,1],2)
+nofarm_p <- model_sum$coef[5,4]
+
+pov_coef <- round(model_sum$coef[8,1],2)
+pov_p <- model_sum$coef[8,4]
+
+drug_coef <- round(model_sum$coef[10,1],2)
+drug_p <- model_sum$coef[10,4]
+
+```
+####Coefficient and Significance Interpretation
+The coefficient for the intercept is `r int_coef`, which means that for a Hispanic male who grew up in a family without poverty in a town or city with no crime in the past, with family size of zero and have never used alchol and drug, his perdicted annual income in 2012 is `r abs(int_coef)` dollars. 
+
+The coefficient for the female gender is `r female_coef `, which means that holding age of first alchol and drug use and family size constant, the estimated income in 2012 for a hispanic woman who grew up in a family without poverty in a town or city with no crime in the past is `r abs(female_coef)` dollars less than that of a male of the same characteristics. This difference between gender is significant because our p value is `r female_p`, which is incredibly small. 
+
+In addition to gender, race, childhood residence, family poverty status and first age of drug use are also associated with income. Holding age of first alchol and drug use and family size constant, the estimated income in 2012 for a Black male who grew up in a family without poverty in a town or city with no crime in the past is `r abs(black_coef )` dollars less than that of a Hispanic male of the same characteristics. This difference between Black and Hispanic males is also significant because our p value is `r black_p`, which is incredibly small. The plot of income by race and gender presented in Part 1 is also consistent with that revealed in the linear regression model. 
+
+Holding age of first alchol and drug use and family size constant, the estimated income in 2012 for a Hispanic male who grew up in a family without poverty in a non-farm country area with no crime in the past is `r abs(nofarm_coef)` dollars less than that of a Hispanic male of the same characteristics but living in a town or city. This difference between childhood residence is significant because our p value is `r nofarm_p`, which is incredibly small. 
+
+The following is the plot of income by childhood residence and gender. The median income for males is similar in town/city and non-farm country areas, However, the income for males in town/city area has a lot more large outliers, potentially leading to higher mean income than that of males in non-farm country area. In addition, the median income for females in town/city area is also higher to than that of females in  non-farm country area. Patterns in this plot is consistent with that revealed in the linear regression model. 
+
+```{r,echo=FALSE, fig.align='center'}
+ggplot(selected_nona, aes(x=urban, y=total_income,color=gender))+ 
+  geom_boxplot()+
+  ggtitle("Total Income in 2012 by Childhood Residence and Gender")+
+  scale_color_manual(values=c("mediumturquoise","salmon"))+
+  labs (color="Gender")+
+  xlab("Childhood Residence")+
+  ylab("Total Income in 2012 (Dollars)")
+
+```
+
+Holding age of first alchol and drug use and family size constant, the estimated income in 2012 for a Hispanic male who grew up in a family with poverty in a town or city with no crime in the past is `r abs(pov_coef)` dollars less than that of a Hispanic male of the same characteristics but growing up in a family without poverty. This difference between family poverty status is significant because our p value is `r pov_p`, which is incredibly small. 
+
+The following is the plot of income by family poverty level in 1979 and gender. The median income for both males and females who grow up in families in poverty had lower income in 2012. This pattern again aligns with our linear regression results. 
+
+```{r,echo=FALSE, fig.align='center'}
+ggplot(selected_nona, aes(x=fam_pov, y=total_income,color=gender))+ 
+  geom_boxplot()+
+  ggtitle("Total Income in 2012 by Family Poverty Level in 1979 and Gender")+
+  scale_color_manual(values=c("mediumturquoise","salmon"))+
+  labs (color="Gender")+
+  xlab("Family Poverty Level in 1979")+
+  ylab("Total Income in 2012 (Dollars)")
+```
+
+Finally, holding age of first alchol use and family size constant, among Hispanic male who grew up in a family without poverty in a town or city with no crime in the past, if the age of first drug use increases by 1, the estimated income will increase by `r drug_coef` dollars. This increase is significant because our p value is `r drug_p`, which is incredibly small. 
+
+This following plot of income by age of first drug use and gender shows that regardless of gender, people with older age of first drug use have higher incomes, regarless of gender. This pattern again aligns with our linear regression results. 
+```{r,echo=FALSE, fig.align='center'}
+
+ggplot(selected_nona, aes(x=drug_age, y=total_income,color=gender))+ 
+  geom_point()+
+  ggtitle("Total Income in 2012 versus Age of first Drug Use, by Gender")+
+  facet_wrap(~ gender)+
+  scale_color_manual(values=c("mediumturquoise","salmon"))+
+  labs (color="Gender")+
+  xlab("Age of first Drug Use")+
+  ylab("Total Income in 2012 (Dollars)")+
+  geom_smooth(method='lm')
+```
+
+####Diagnostic Plots
+In order to assess if our model is appropriate, the diagnostic plots are presented below: 
+```{r,echo=FALSE,fig.align='center' }
+plot(model)
+```
+
+From the Residuals vs. Fitted plot, we can see that the red line is pretty flat, suggesting that there is no discernible non-linear trend to the residuals. Furthermore, the residuals appear to be equally variable across the range of fitted values. There is no indication of non-constant variance.
+
+However, the Normal QQ plot tells us that the residuals from the regression is not normally distributed. There is a heavy upper tail. This is expected because our total income data is skewed to the right. The actual quantiles is slightly greater than the theoretical quantiles, suggesting that there are  that there are actually more data beyond the right side of a normal distribution. 
+
+The Scale Location plot has a red line that is slightly going upwards. This could also be due to the fact that our total income data is skewed to the right. Last but not least, the Residuals vs Leverage plot tells us there are no datapoints with extremely high residuals and high leverage. 
+
+####ANOVA Test Interpretation
+In order to further confirm the relationship between gender and income, I also ran an ANOVA to test if gender contributes to the variance in total income in 2012. 
+```{r, echo=FALSE, fig.align='center'}
+model2 <- lm(total_income ~. -gender, data=selected)
+anova.test <- anova(model2, model)
+anova.test 
+```
+
+
+Our p value from the ANOVA test is `r anova.test[2,"Pr(>F)" ]`, which is extremely small. It is unlikely that the improvement in fit when we add the gender variable is simply due to random fluctuations in the data. We have significant evidence to support that gender contributes to variance in total income in 2012 of the survey participants. It is important to include gender as a varaible when modeling annual income. 
+
+
+###Part 4: Discussion
+
+To conclude, I found that there is a significant difference in income between men and women. The annual income in 2012 for women is significantly lower than that of men. Gender is an important contributor to the variation in annual income. Further, income is also associated with other factors, including race, childhood residnece, family poverty status, and age of first drug use. It is difficult to model and predict income because it is rather a social, rather than mathmatical or scientific product. It is imortant to acknowledge the limitations of my analysis and findings because I only used 8 variables to construct the model. Income can potentially be dependent on many other factors beyond the scope of my model. In addition, income data is also often skewed to the right. Without a perfectly normal distribution, the p-values in my analysis may become less accurate, therefore leading to potentially false conclusions. If given more time, I would love to explore more variables and improve the model to find the strongest predictors of income. 
+
+Despite the limitations of the analysis, I am overall confident in my findings to present to policy makers. Our p-values for gender in both the linear regression model and the ANOVA test is extremely small. I don't think this gender gap in income is so big that it will remain significant even if we make changes to features in the model. 
+
+
+
